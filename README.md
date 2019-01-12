@@ -11,6 +11,8 @@ boot assumes a jailer user and group have been created with the uid of 1004 and 
 ## start
 Script links the linux vm binary and copies a fresh root file system. Sends HTTP requests to the microvm api server, an configures it to boot.
 
+a linux kernel binary, and a ext4 root filesystem should be located under /opt/firecracker. If unsure on what these are follow the [getting started ocumentation](https://github.com/firecracker-microvm/firecracker/blob/master/docs/getting-started.md#running-firecracker).
+
 ### Arguments
 boot and start both take the same single argument, the identification of the vm. 
 
