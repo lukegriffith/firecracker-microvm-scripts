@@ -7,8 +7,8 @@ sock=$boot_rt'api.socket'
 rootfs='./hello-rootfs.ext4'
 kernel_bin='./hello-vmlinux.bin'
 source_rt='/opt/firecracker/'
-logs_fifo=$boot_rt'/logs'
-metrics_fifo=$boot_rt'/metrics'
+logs_fifo=$boot_rt'/root/logs'
+metrics_fifo=$boot_rt'/root/metrics'
 
 
 echo "Starting microvm...
@@ -32,7 +32,7 @@ cp -n /opt/firecracker/hello-rootfs.ext4 $boot_rt/root/hello-rootfs.ext4 \
 # make fifo pipes for logging
 
 mkfifo -m a=rw $logs_fifo
-mkfifo -m a=rw $logs_fifo
+mkfifo -m a=rw $metrics_fifo
 
 # configuring ownership
 
@@ -72,10 +72,10 @@ curl --unix-socket $sock -s \
 
 echo 
 
-curl --unix-socket $sock -s \ 
-    -X PUT 'http://localhost/logger' \ 
-    -H 'accept: application/json' \ 
-    -H 'Content-Type: application/json' \ 
+curl --unix-socket $sock -s \
+    -X PUT 'http://localhost/logger' \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
     -d '{
         "log_fifo": "./logs", 
         "metrics_fifo": "./metrics", 
