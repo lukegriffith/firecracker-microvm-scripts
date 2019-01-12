@@ -7,6 +7,9 @@ sock=$boot_rt'api.socket'
 rootfs='./hello-rootfs.ext4'
 kernel_bin='./hello-vmlinux.bin'
 source_rt='/opt/firecracker/'
+logs_fifo=$boot_rt'/logs'
+metrics_fifo=$boot_rt'/metrics'
+
 
 echo "Starting microvm...
 
@@ -26,6 +29,11 @@ ln $source_rt/hello-vmlinux.bin $boot_rt/root/hello-vmlinux.bin 2> /dev/null \
 cp -n /opt/firecracker/hello-rootfs.ext4 $boot_rt/root/hello-rootfs.ext4 \
 
 
+# make fifo pipes for logging
+
+mkfifo -m a=rw $logs_fifo
+mkfifo -m a=rw $logs_fifo
+
 # configuring ownership
 
 chown -R jailer:jailer $boot_rt \
@@ -42,7 +50,7 @@ curl --unix-socket $sock -s \
     -d '{
         "kernel_image_path": "'$kernel_bin'",
         "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
-    }' | jq \
+    }' | jq 
   
 
 # set root filesystem
@@ -58,7 +66,23 @@ curl --unix-socket $sock -s \
         "path_on_host": "'$rootfs'",
         "is_root_device": true,
         "is_read_only": false
-    }' | jq \
+    }' | jq 
+
+# configure logger
+
+echo 
+
+curl --unix-socket $sock -s \ 
+    -X PUT 'http://localhost/logger' \ 
+    -H 'accept: application/json' \ 
+    -H 'Content-Type: application/json' \ 
+    -d '{
+        "log_fifo": "./logs", 
+        "metrics_fifo": "./metrics", 
+        "level": "Error", 
+        "show_level": true, 
+        "show_log_origin": false
+    }' | jq 
 
 # start machine
 
@@ -70,6 +94,6 @@ curl --unix-socket $sock -s \
     -H  'Content-Type: application/json'    \
     -d '{
         "action_type": "InstanceStart"
-    }' | jq \
+    }' | jq 
 
 
