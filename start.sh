@@ -26,13 +26,20 @@ ln $source_rt/hello-vmlinux.bin $boot_rt/root/hello-vmlinux.bin 2> /dev/null \
 
 # no clobber copy of the root filesystem
 
-cp -n /opt/firecracker/hello-rootfs.ext4 $boot_rt/root/hello-rootfs.ext4 \
+cp -n /opt/firecracker/hello-rootfs.ext4 $boot_rt/root/hello-rootfs.ext4 
 
 
 # make fifo pipes for logging
 
-mkfifo -m a=rw $logs_fifo
-mkfifo -m a=rw $metrics_fifo
+mkfifo -m a=rw $logs_fifo  2> /dev/null \
+  && echo "Created logs fifo pipe for $1" \
+  || echo "Failed to create logs fifo pipe for $1, already exists?" 
+
+
+mkfifo -m a=rw $metrics_fifo 2> /dev/null \
+  && echo "Created metrics fifo pipe for $1" \
+  || echo "Failed to create metrics fifo pipe for $1, already exists?" 
+
 
 # configuring ownership
 
@@ -43,21 +50,21 @@ chown -R jailer:jailer $boot_rt \
 
 echo
 
-curl --unix-socket $sock -s \
+curl --unix-socket $sock -s -i \
     -X PUT 'http://localhost/boot-source'   \
     -H 'Accept: application/json'           \
     -H 'Content-Type: application/json'     \
     -d '{
         "kernel_image_path": "'$kernel_bin'",
         "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
-    }' | jq 
+    }' 
   
 
 # set root filesystem
 
 echo
 
-curl --unix-socket $sock -s \
+curl --unix-socket $sock -s -i \
     -X PUT 'http://localhost/drives/rootfs' \
     -H 'Accept: application/json'           \
     -H 'Content-Type: application/json'     \
@@ -66,13 +73,13 @@ curl --unix-socket $sock -s \
         "path_on_host": "'$rootfs'",
         "is_root_device": true,
         "is_read_only": false
-    }' | jq 
+    }' 
 
 # configure logger
 
 echo 
 
-curl --unix-socket $sock -s \
+curl --unix-socket $sock -s -i \
     -X PUT 'http://localhost/logger' \
     -H 'accept: application/json' \
     -H 'Content-Type: application/json' \
@@ -82,18 +89,36 @@ curl --unix-socket $sock -s \
         "level": "Error", 
         "show_level": true, 
         "show_log_origin": false
-    }' | jq 
+    }'
+
+# configure network device
+
+echo 
+
+curl --unix-socket $sock -s -i \
+     -X PUT 'http://localhost/network-interfaces/0' \
+     -H 'accept: application/json' \
+     -H 'Content-Type: application/json' \
+     -d '{
+          "iface_id": "0",
+          "guest_mac":"6e:7a:0d:17:a0:24",
+          "host_dev_name": "tap2",
+          "allow_mmds_requests": false
+        }'
+
+
+
 
 # start machine
 
 echo
 
-curl --unix-socket $sock -s \
+curl --unix-socket $sock -s -i \
     -X PUT 'http://localhost/actions'       \
     -H  'Accept: application/json'          \
     -H  'Content-Type: application/json'    \
     -d '{
         "action_type": "InstanceStart"
-    }' | jq 
+    }'
 
 
