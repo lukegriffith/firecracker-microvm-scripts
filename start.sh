@@ -2,14 +2,25 @@
 
 # $1 is microvm id
 
-boot_rt='/srv/jailer/firecracker/'$1'/'
-sock=$boot_rt'api.socket'
+
+# paths.
+boot_rt='/srv/jailer/firecracker/'$1
+sock=$boot_rt'/api.socket'
+source_rt='/opt/firecracker/'
+
+# image and filesystem files. 
 rootfs='./hello-rootfs.ext4'
 kernel_bin='./hello-vmlinux.bin'
-source_rt='/opt/firecracker/'
+
+
+# named pipe configuration
 logs_fifo=$boot_rt'/root/logs'
 metrics_fifo=$boot_rt'/root/metrics'
 
+
+# network configuration 
+network_namespace="net"
+tap_device="tap_$1"
 
 echo "Starting microvm...
 
@@ -46,6 +57,14 @@ mkfifo -m a=rw $metrics_fifo 2> /dev/null \
 chown -R jailer:jailer $boot_rt \
   || echo "Failed to configure boot root ownership for $1."
 
+# creating network tap devices
+
+ip tuntap add user jailer group jailer name $tap_device mode tap
+ip link set dev $tap_device netns $network_namespace
+
+guest_mac=ip link show $tap_device | grep link/ether \
+  | awk '{print $2}'
+
 # set boot image
 
 echo
@@ -56,7 +75,7 @@ curl --unix-socket $sock -s -i \
     -H 'Content-Type: application/json'     \
     -d '{
         "kernel_image_path": "'$kernel_bin'",
-        "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
+        "boot_args": "console=ttyS0 reboot=k panic=1 pci=off ip=10.1.1.10/24"
     }' 
   
 
@@ -101,13 +120,10 @@ curl --unix-socket $sock -s -i \
      -H 'Content-Type: application/json' \
      -d '{
           "iface_id": "0",
-          "guest_mac":"6e:7a:0d:17:a0:24",
-          "host_dev_name": "tap2",
-          "allow_mmds_requests": false
+          "guest_mac":"'$guest_mac'",
+          "host_dev_name": "'$tap_device'",
+          "allow_mmds_requests": true
         }'
-
-
-
 
 # start machine
 
