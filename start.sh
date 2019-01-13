@@ -11,7 +11,7 @@ source_rt='/opt/firecracker/'
 # image and filesystem files. 
 rootfs='./hello-rootfs.ext4'
 kernel_bin='./hello-vmlinux.bin'
-
+kernel_args=''
 
 # named pipe configuration
 logs_fifo=$boot_rt'/root/logs'
@@ -21,6 +21,16 @@ metrics_fifo=$boot_rt'/root/metrics'
 # network configuration 
 network_namespace="net"
 tap_device="tap_$1"
+
+
+mask_long="255.255.255.0"
+mask_short="/24"
+
+guest_ip="10.1.$(( 16#${1:0:2} )).$(( 16#${1:2:3} ))"
+guest_mac="10:FC:00:A0:${1:0:2}:${1:2:3}"
+
+echo "guest_mac $guest_mac"
+
 
 echo "Starting microvm...
 
@@ -57,13 +67,14 @@ mkfifo -m a=rw $metrics_fifo 2> /dev/null \
 chown -R jailer:jailer $boot_rt \
   || echo "Failed to configure boot root ownership for $1."
 
-# creating network tap devices
+# creating and configure network tap devices
 
-ip tuntap add user jailer group jailer name $tap_device mode tap
-ip link set dev $tap_device netns $network_namespace
-
-guest_mac=ip link show $tap_device | grep link/ether \
-  | awk '{print $2}'
+ip tuntap add dev $tap_device user jailer group jailer mode tap
+ip link set $tap_device netns $network_namespace
+ip netns exec $network_namespace ip addr add dev "${tap_device} "${guest_ip}${mask_short}" "
+ip netns exec $network_namespace ip link set dev "${tap_device}" up
+ip netns exec $network_namespace sysctl -w net.ipv4.conf.${tap_device}.proxy_arp=1 > /dev/null
+ip netns exec $network_namespace sysctl -w net.ipv6.conf.${tap_device}.disable_ipv6=1 > /dev/null
 
 # set boot image
 
@@ -75,7 +86,7 @@ curl --unix-socket $sock -s -i \
     -H 'Content-Type: application/json'     \
     -d '{
         "kernel_image_path": "'$kernel_bin'",
-        "boot_args": "console=ttyS0 reboot=k panic=1 pci=off ip=10.1.1.10/24"
+        "boot_args":"console=tty50 reboot=k panic=1 pci=off ipv6.disable=1"
     }' 
   
 
