@@ -71,7 +71,7 @@ chown -R jailer:jailer $boot_rt \
 
 ip tuntap add dev $tap_device user jailer group jailer mode tap
 ip link set $tap_device netns $network_namespace
-ip netns exec $network_namespace ip addr add dev "${tap_device} "${guest_ip}${mask_short}" "
+ip netns exec $network_namespace ip addr add dev "${tap_device}" "${guest_ip}${mask_short}"
 ip netns exec $network_namespace ip link set dev "${tap_device}" up
 ip netns exec $network_namespace sysctl -w net.ipv4.conf.${tap_device}.proxy_arp=1 > /dev/null
 ip netns exec $network_namespace sysctl -w net.ipv6.conf.${tap_device}.disable_ipv6=1 > /dev/null
@@ -86,7 +86,7 @@ curl --unix-socket $sock -s -i \
     -H 'Content-Type: application/json'     \
     -d '{
         "kernel_image_path": "'$kernel_bin'",
-        "boot_args":"console=tty50 reboot=k panic=1 pci=off ipv6.disable=1"
+        "boot_args":"console=tty50 reboot=k panic=1 pci=off ipv6.disable=1 ip='${guest_ip}${mask_short}'"
     }' 
   
 
